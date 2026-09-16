@@ -13,4 +13,8 @@ public class IngestionServiceApp {
         // trim whitespace, fix casing, normalize dates/booleans) and expose the
         // cleaned records here for the other services to consume.
     }
+
+    public static int parseBeds(String bed) {
+        return 0;
+    }
 }
