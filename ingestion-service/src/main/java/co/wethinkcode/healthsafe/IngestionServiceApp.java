@@ -15,6 +15,28 @@ public class IngestionServiceApp {
     }
 
     public static int parseBeds(String bed) {
-        return 0;
+        if (bed == null) return 0;
+
+        String clean = bed.trim().toLowerCase();
+
+        //word to number inputs
+        switch (clean) {
+            case "one": return 1;
+            case "two": return 2;
+            case "three": return 3;
+            case "four": return 4;
+            case "five": return 5;  
+        }
+
+        try {
+            int beds = Integer.parseInt(clean);
+
+            if (beds < 0 || beds > 100) {
+                return 0;
+            }
+            return beds;
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 }
