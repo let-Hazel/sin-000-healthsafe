@@ -21,5 +21,7 @@ class IngestionServiceAppTest {
         assertEquals(0, IngestionServiceApp.parseBeds("N/A"));
         assertEquals(0, IngestionServiceApp.parseBeds("-1"));
         assertEquals(0, IngestionServiceApp.parseBeds("2023"));
+        assertEquals(0, IngestionServiceApp.parseBeds(null));
+        
     }
 }
