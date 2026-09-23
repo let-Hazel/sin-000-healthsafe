@@ -84,12 +84,20 @@ public class IngestionServiceApp {
                     cleanedWards.add(ward);
 
                 }
-            
-            
 
+                logger.info("[AUDIT] event=CSV_INGESTION_COMPLETE total_records={}", cleanedWards.size());
+            } catch (Exception e) {
+                logger.error("[Audit] event=CSV_PARSE_ERROR message={}", e.getMessage());
+            }
+    }   
 
-
-    }       
+    //department spelling should stay the same
+    private static String cleanDepartment(String dept) {
+        if ("Pediatrics".equalsIgnoreCase(dept)) {
+            return "Paediatrics";
+        }
+        return dept;
+    }
 
     public static int parseBeds(String bed) {
         if (bed == null) {
@@ -125,5 +133,9 @@ public class IngestionServiceApp {
             
             return 0;
         }
+    }
+
+    public static List<Ward> getCleanedWards() {
+        return cleanedWards;
     }
 }
