@@ -1,15 +1,16 @@
 package co.wethinkcode.healthsafe;
 
-import io.javalin.Javalin;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.charset.standardCharsets;
-import java.util.ArrayLists;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.javalin.Javalin;
 
 
 public class IngestionServiceApp {
@@ -18,7 +19,7 @@ public class IngestionServiceApp {
     private static final Logger logger = LoggerFactory.getLogger(IngestionServiceApp.class);
 
     //cleaned ward data in-memory store
-    private static final List<Ward> cleanedWards = new ArrayList<>();
+    private static final List<WardService> cleanedWards = new ArrayList<>();
 
     public static void main(String[] args) {
 
@@ -38,10 +39,12 @@ public class IngestionServiceApp {
         });  
 
         //Expose cleaned  wards endpoint for other services to consume
-        app.get("wards", ctx -> {
-            logger.info("[AUDIT' event=FETCH_WARDS count={} client_ip={}, cleanedWards.size(),
-            ctx.ip(();
+        app.get("/wards", ctx -> {
+            logger.info("[AUDIT] event=FETCH_WARDS count={} client_ip={}", cleanedWards.size(),
+            ctx.ip());
             ctx.json(cleanedWards);
+
+        });
 
         logger.info("Ingestion Service active on port 7030");
 
@@ -53,7 +56,7 @@ public class IngestionServiceApp {
     public static void loadAndCleanCsv() {
 
             cleanedWards.clear();
-            InpuputStream inputStream = IngestionServiceApp.class.getClassLoader()
+            InputStream inputStream = IngestionServiceApp.class.getClassLoader()
                 .getResourceAsStream("wards-outdated.csv");
 
             if (inputStream == null) {
@@ -65,7 +68,7 @@ public class IngestionServiceApp {
                 String line;
                 boolean isHeader = true;
 
-                while ((line = reader.readline()) != null) {
+                while ((line = reader.readLine()) != null) {
                     if (isHeader) {
                         isHeader = false;
                         continue;
@@ -80,7 +83,7 @@ public class IngestionServiceApp {
                     String rawDept = cleanDepartment(cols[2].replace("\u00a0", " ").trim());
                     int beds = parseBeds(cols[3]);
 
-                    Ward ward = new Ward(rawId, rawWing, rawDept, beds);
+                    WardService ward = new WardService(rawId, rawWing, rawDept, beds);
                     cleanedWards.add(ward);
 
                 }
@@ -135,7 +138,7 @@ public class IngestionServiceApp {
         }
     }
 
-    public static List<Ward> getCleanedWards() {
+    public static List<WardService> getCleanedWards() {
         return cleanedWards;
     }
 }
