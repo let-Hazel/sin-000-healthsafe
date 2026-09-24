@@ -66,24 +66,24 @@ public class StaffingServiceApp {
     }
 
     public static StaffAssignment findStaffById(String id) {
-        return StaffMap.get(id);
+        return staffMap.get(id);
     }
 
-    public static boolean assignmentStaffToWard(String id, String newWardId, String userRole) {
+    public static boolean assignStaffToWard(String id, String newWardId, String userRole) {
 
         if (!"STAFF_ADMIN".equalsIgnoreCase(userRole) && !"HR_ADMIN".equalsIgnoreCase(userRole)) {
             logger.warn("[SECURITY_ALERT] event=UNAUTHORIZED_ROSTER_MUTATION actor_role={} staff_id={} target_ward={}", userRole, id, newWardId);
             return false;
         }
 
-        StaffAsignment existing = staffMap.get(id);
+        StaffAssignment existing = staffMap.get(id);
         if (existing == null) {
             return false;
         }
 
-        StaffAssignment updated = StaffAssignment(existing.staffId(), existing.name(), existing.role(), newWardId);
+        StaffAssignment updated = new StaffAssignment(existing.staffId(), existing.name(), existing.role(), newWardId);
 
-        StaffMap.put(id, updated);
+        staffMap.put(id, updated);
 
         logger.info("[PAM_AUDIT] event=STAFF_REASSIGNED actor_role={} staff_id={} new_ward={}", 
                 userRole, id, newWardId);
