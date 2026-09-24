@@ -32,7 +32,7 @@ class WardServiceAppTest {
     void shouldUpdateBedsWithValidRole() {
         //PAM Check: Privileged update with WARD_ADMIN role
         boolean updated = WardServiceApp.updateWardBeds("W1", 5, "WARD_ADMIN");
-        assertTrue("updated");
+        assertTrue(updated);
         assertEquals(5, WardServiceApp.findWardById("W1").bedsAvailable());
     }
 

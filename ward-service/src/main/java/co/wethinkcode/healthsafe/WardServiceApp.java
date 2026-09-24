@@ -66,7 +66,37 @@ public class WardServiceApp {
             }
         });
 
-        logger.info("Ward Service actie on port 7031");
+        logger.info("Ward Service active on port 7031");
+    }
+
+    //finds a ward by its id in memory
+    public static Ward findWardById(String id) {
+        return wardsMap.get(id);
+    }
+
+    //mutates bed state with PAM check
+    public static boolean updateWardBeds(String id, int newBeds, String role) {
+        if (!"WARD_ADMIN".equalsIgnoreCase(role)) {
+            logger.warn("[SECURITY_ALERT] event=UNAUTHORIZED_PAM_ACCESS user_role={} action=UPDATE_BEDS WARD_ID={}", role, id);
+            return false;
+        }
+
+        Ward existing = wardsMap.get(id);
+        if (existing == null) {
+            return false;
+        }
+
+        //update record state in memory
+        Ward updated = new Ward(existing.wardId(), existing.wing(), existing.department(), newBeds);
+        wardsMap.put(id, updated);
+
+        logger.info("[PAM_AUDIT] event=WARD_BEDS_MUTATED actor_role={} ward_id={} new_beds={}", role, id, newBeds);
+        return true;
+
+    }
+
+    public static Map<String, Ward> getWardsMap() {
+        return wardsMap;
     }
 }
 
