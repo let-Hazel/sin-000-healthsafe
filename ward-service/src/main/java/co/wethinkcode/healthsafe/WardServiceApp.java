@@ -1,9 +1,19 @@
 package co.wethinkcode.healthsafe;
 
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.javalin.Javalin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -16,7 +26,13 @@ public class WardServiceApp {
     //concurrenthashmap
     private static final Map<String, Ward> wardsMap = new ConcurrentHashMap<>();
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     public static void main(String[] args) {
+
+        //fetch clean data from port 7030
+        fetchInitialWardsFromIngestion();
+
         Javalin app = Javalin.create().start(7031);
 
         app.get("/health", ctx -> ctx.result("OK"));
@@ -68,6 +84,33 @@ public class WardServiceApp {
 
         logger.info("Ward Service active on port 7031");
     }
+
+    public static void fetchInitialWardsFromIngestion() {
+        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
+
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create("http://localhost:7030/wards")).GET().build();
+
+        try {
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                List<Ward> fetchedWards = objectMapper.readValue(response.body(), new TypeReference<List<Ward>>() {}
+                );
+
+                for (Ward ward : fetchedWards) {
+                    wardsMap.put(ward.wardId(), ward);
+                }
+
+                logger.info("[INTER_SERVICE_SYNC] event=FETCH_SUCEES source=INGESTION_SERVICE records={}", fetchedWards.size());
+            } else {
+                logger.warn("[INTER_SERVICE_SYNC] event=FETCH_FAILED status={}", response.statusCode());
+            }
+                
+             } catch (Exception e) {
+                logger.error("[INTER_SERVICE_SYNC] event=CONNECTION_ERROR reason={}", e.getMessage());
+            }
+        }
+    
 
     //finds a ward by its id in memory
     public static Ward findWardById(String id) {
