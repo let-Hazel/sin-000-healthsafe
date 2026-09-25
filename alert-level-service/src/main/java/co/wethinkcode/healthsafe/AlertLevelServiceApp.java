@@ -4,6 +4,10 @@ import io.javalin.Javalin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import co.wethinkcode.healthsafe.mq.MqConfig;
+import org.apache.activemq.ActiveMQConnectionFactory;
+import javax.jms.*;
+
 public class AlertLevelServiceApp {
 
     private static final Logger logger = LoggerFactory.getLogger(AlertLevelServiceApp.class);
@@ -11,6 +15,10 @@ public class AlertLevelServiceApp {
     private static volatile AlertStatus currentStatus = new AlertStatus(0, "Normal Operations", "SYSTEM");
 
     public static void main(String[] args) {
+
+        // Start background MQ Consumer listener
+        startMqConsumer();
+
         Javalin app = Javalin.create().start(7032);
 
         app.get("/health", ctx -> ctx.result("OK"));
@@ -52,6 +60,40 @@ public class AlertLevelServiceApp {
 
         logger.info("Alert Level Service active on port 7032");
     }
+
+    public static void startMqConsumer() {
+    new Thread(() -> {
+        try {
+            ConnectionFactory factory = new ActiveMQConnectionFactory(MqConfig.BROKER_URL);
+            Connection connection = factory.createConnection();
+            connection.start();
+
+            Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            Destination destination = session.createQueue(MqConfig.QUEUE);
+            MessageConsumer consumer = session.createConsumer(destination);
+
+            logger.info("[MQ_CONSUMER] Listening for critical events on queue: {}", MqConfig.QUEUE);
+
+            consumer.setMessageListener(message -> {
+                if (message instanceof TextMessage textMessage) {
+                    try {
+                        String payload = textMessage.getText();
+                        logger.info("[MQ_CONSUMER_EVENT] received_payload={}", payload);
+                        
+                        // Automatically escalate alert level on critical equipment failure
+                        setCurrentAlertLevel(3, "Equipment Failure Detected via ActiveMQ Queue", "MQ_SYSTEM_LISTENER");
+                            logger.info("[PAM_AUDIT] event=SYSTEM_ALERT_ESCALATED new_code=3 actor=MQ_SYSTEM_LISTENER");
+                    } catch (JMSException e) {
+                        logger.error("[MQ_CONSUMER_ERROR] Failed to read message text: {}", e.getMessage());
+                    }
+                }
+            });
+        } catch (Exception e) {
+            logger.warn("[MQ_CONSUMER_WARNING] ActiveMQ broker unreachable at {}. Continuing in standalone mode.", MqConfig.BROKER_URL);
+        }
+    }).start();
+}
+    
 
     public static AlertStatus getCurrentAlertStatus() {
         return currentStatus;

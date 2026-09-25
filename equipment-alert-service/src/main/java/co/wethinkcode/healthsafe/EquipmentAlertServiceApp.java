@@ -8,6 +8,10 @@ import org.slf4j.LoggerFactory;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import co.wethinkcode.healthsafe.mq.MqConfig;
+import org.apache.activemq.ActiveMQConnectionFactory;
+import javax.jms.*;
+
 public class EquipmentAlertServiceApp {
 
     private static final Logger logger = LoggerFactory.getLogger(EquipmentAlertServiceApp.class);
@@ -18,9 +22,6 @@ public class EquipmentAlertServiceApp {
         Javalin app = Javalin.create().start(7034);
 
         app.get("/health", ctx -> ctx.result("OK"));
-
-        // TODO (Uses a Queue to guarantee delivery of critical medical equipment failure alerts.)
-        // Mechanism: ActiveMQ Queue (guaranteed delivery)
 
         // NPAM Route: Unprivileged access to list all equipment
         app.get("/equipment", ctx -> {
@@ -62,6 +63,33 @@ public class EquipmentAlertServiceApp {
         logger.info("Equipment Service active on port 7034");
     }
 
+    public static void publishEquipmentAlert(String equipmentId, String status, String wardId) {
+        try {
+            ConnectionFactory factory = new ActiveMQConnectionFactory(MqConfig.BROKER_URL);
+            Connection connection = factory.createConnection();
+            connection.start();
+
+            Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+            Destination destination = session.createQueue(MqConfig.QUEUE);
+            MessageProducer producer = session.createProducer(destination);
+
+            String payload = String.format("{\"event\":\"EQUIPMENT_FAILURE\", \"equipmentId\":\"%s\", \"status\":\"%s\", \"wardId\":\"%s\"}",
+                    equipmentId, status, wardId);
+
+            TextMessage message = session.createTextMessage(payload);
+            producer.send(message);
+
+            logger.info("[MQ_PRODUCER] published=EQUIPMENT_FAILURE equipment_id={} status={} destination={}", 
+                    equipmentId, status, MqConfig.QUEUE);
+
+            producer.close();
+            session.close();
+            connection.close();
+        } catch (Exception e) {
+            logger.error("[MQ_PRODUCER_ERROR] Failed to publish message to ActiveMQ: {}", e.getMessage());
+        }
+    }
+
     public static Equipment findEquipmentById(String id) {
         return equipmentMap.get(id);
     }
@@ -74,11 +102,13 @@ public class EquipmentAlertServiceApp {
             return false;
         }
 
+        // 1. Retrieve existing record first
         Equipment existing = equipmentMap.get(id);
         if (existing == null) {
             return false;
         }
 
+        // 2. Mutate in-memory state
         Equipment updated = new Equipment(
                 existing.equipmentId(),
                 existing.name(),
@@ -87,6 +117,11 @@ public class EquipmentAlertServiceApp {
                 newStatus.toUpperCase()
         );
         equipmentMap.put(id, updated);
+
+        // 3. Publish to ActiveMQ if faulty/decommissioned
+        if ("FAULTY".equalsIgnoreCase(newStatus) || "DECOMMISSIONED".equalsIgnoreCase(newStatus)) {
+            publishEquipmentAlert(id, newStatus.toUpperCase(), existing.wardId());
+        }
 
         logger.info("[PAM_AUDIT] event=EQUIPMENT_STATUS_MUTATED actor_role={} equipment_id={} new_status={}", 
                 userRole, id, newStatus.toUpperCase());
@@ -97,6 +132,3 @@ public class EquipmentAlertServiceApp {
         return equipmentMap;
     }
 }
-
-// MQ TODO: consumes ActiveMQ queue MqConfig.QUEUE at MqConfig.BROKER_URL (see co.wethinkcode.healthsafe.mq.MqConfig)
-// Producer: ward-service publishes here when it detects an equipment failure on one of its wards.

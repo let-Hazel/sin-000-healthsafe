@@ -18,6 +18,13 @@
                   <maven.compiler.target>17</maven.compiler.target>
                   <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
          </properties>
+         <modules>
+            <module>ingestion-service</module>
+            <module>ward-service</module>
+            <module>alert-level-service</module>
+            <module>staffing-service</module>
+            <module>equipment-alert-service</module>
+        </modules>
 
          <dependencies>
                   <dependency>
